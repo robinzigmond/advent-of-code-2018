@@ -17,7 +17,7 @@ reactChar first second =
 reactFully :: Char -> String -> String
 -- takes a string and a char to be put at the start of it, following any reactions all the way through
 reactFully char [] = [char]
-reactFully char str@(x:xs) = let firstResult = reactChar char x
+reactFully char (x:xs) = let firstResult = reactChar char x
                                 in if length firstResult == 2
                                     then firstResult ++ xs
                                     else if null xs
@@ -32,7 +32,7 @@ first = do
     putStrLn $ show $ solveFirst input
 
 remove :: Char -> String -> String
--- simply removes all instances (upper and lower) of the given char form the given string
+-- simply removes all instances (upper and lower) of the given char from the given string
 remove char = filter (((/=) `on` toUpper) char)
 
 resultsOfRemovals :: String -> [Int]

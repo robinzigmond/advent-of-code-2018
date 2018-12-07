@@ -4,8 +4,7 @@ below. I just couldn't get on with this problem at all, and this has already bee
 that it started out as.
 
 Still, ugly though it is (and inefficient too, see comment above the solveSecond function) - it worked,
-and that's the main thing! :-)
--}
+and that's the main thing! :-) -}
 
 import Data.List (isInfixOf, nub, sortOn, (\\), findIndex)
 
