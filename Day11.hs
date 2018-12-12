@@ -31,7 +31,7 @@ powerOfLShape :: Int -> Int -> Cell -> Int
 -- finds the total power of the "L shape" of cells that make up the bottom and right edges
 -- of a square of the given size. (Where the size is 1, this is a single cell.) The cell parameter
 -- gives the top-left corner of the notional square. This is important to compute the maximum power
--- over squares in an efficient manner
+-- over squares in an efficient manner. 
 powerOfLShape serial size (x, y) = sum $ map (powerLevel serial) $
                                     [(x + size - 1, y') | y' <- [y..(y + size - 1)]]
                                     ++ [(x', y + size - 1) | x' <- [x..(x + size - 2)]]
@@ -44,6 +44,10 @@ biggestSquarePower serial (x, y) = let totals = tail $ scanl (\total size -> tot
                                        biggest = maximum totals
                                    in ((x, y), let Just idx = findIndex (== biggest) totals in idx + 1, biggest)
 
+-- still far too slow, so I can't solve this case yet. I thought switching to this approach (calculating the
+-- max square size, for each top-left corner, by adding up "L shapes") would at least be much quicker than
+-- my previous naive approach of looping over all corners and sizes - but it doesn't appear to be any quicker
+-- at all :-(
 second :: Int -> (Cell, Int)
 second serial = let maxesForCells = map (biggestSquarePower serial) [(x, y) | x <- [1..300], y <- [1..300]]
                     (cell, size, max) = head $ sortOn (\(x, y, z) -> -z) maxesForCells
