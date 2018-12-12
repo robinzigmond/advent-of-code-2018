@@ -1,4 +1,4 @@
-{- I cheated a little bit here - after my naive solution to part (naively sing lists) took over half an hour,
+{- I cheated a little bit here - after my naive solution to part 1 (using lists) took over half an hour,
 and I couldn't see any "trick" which would reduce the solution time significantly (to allow me to have any
 hope of part 2 in less than a few hours), I read a few discussion threads on this puzzle where it was indicated
 that the key was just to use the right data structure. So after some research I decided to use Sequences instead,
