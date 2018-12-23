@@ -44,15 +44,50 @@ solveFirst pots rules = sum hasPots
 first :: IO ()
 first = getData >>= (putStrLn . show . (uncurry solveFirst))
 
-{- clearly far too slow to run in reasonable time, so I haven't tried! Computing 5000 generations takes about 11
-seconds currently, 50000 about 2 minutes, so it would appear to need weeks to get to 50 billion! Clearly I need
-an algorithem which is MUCH quicker than O(n), which my current one is, due to the folds. But I am unable to come
-up with any way of computing one generation from the next without stepping through the map (or list, or whatever)
-one element at a time, which will always be O(n)... -}
-solveSecond :: Pots -> Rules -> Int
-solveSecond pots rules = sum hasPots
-    where finalPots = evolve pots rules 50000000000
-          hasPots = filter (\key -> (finalPots Map.! key) == '#') (Map.keys finalPots)
+-- There might be a repeating pattern in the output, since 50 billion generations is clearly infeasible.
+-- So let's make an infinite list of all possible outputs, in order to detect the first repeat
 
-second :: IO ()
-second = getData >>= (putStrLn . show . (uncurry solveSecond))
+allStates :: Pots -> Rules -> [Pots]
+allStates pots rules = pots : (map ((flip generation) rules) (allStates pots rules))
+
+prettyDisplay :: Pots -> String
+prettyDisplay pots = let leftEnd = minimum $ Map.keys pots
+                         rightEnd = maximum $ Map.keys pots
+                     in map (flip (Map.findWithDefault '.') pots) [leftEnd..rightEnd]
+
+-- now show the list, and stop when a repetition is reached 
+showThings :: IO ()
+showThings = getData >>= (lookForRepeats . (uncurry allStates))
+    where lookForRepeats [] = error "empty list!"
+          lookForRepeats xs = doIt 0 xs
+          doIt n xs = if xs!!n `elem` (take n xs)
+                        then do
+                            putStrLn "cycle detected!"
+                            return ()
+                        else do
+                            putStrLn $ prettyDisplay $ xs!!n
+                            doIt (n+1) xs
+
+-- it works! At least in the sense that a stable pattern is clearly visible. But for some reason it isn't
+-- checking for repetition properly, as it just keeps repeating without printing the "cycle detected"
+-- message.
+
+-- and after checking the rules to confirm that this map is stable, I realise the reason. The map isn't
+-- "the same", because the indexes are different. The pots just "move along" by a fixed amount,
+-- without any being added or removed. This allows us to easily work out how what the digit sum is
+-- at any given generation, past the point at which this happens.
+
+-- the following is a "cheaty" way to figure this out.
+
+showCycleData :: IO ()
+showCycleData = getData >>= (lookForRepeats . (uncurry allStates))
+    where lookForRepeats [] = error "empty list!"
+          lookForRepeats xs = doIt 0 xs
+          doIt n xs = do
+                        putStrLn $ "generation " ++ (show n)
+                        let hasPots pots = filter (\key -> ((xs!!n) Map.! key) == '#') (Map.keys pots)
+                        putStrLn $ show $ sum $ hasPots (xs!!n)
+                        doIt (n+1) xs
+
+-- the output data, together with the earlier run, shows that the sum at generation n is "eventually" equal to
+-- 67n (from generation 101 onwards). So the answer is 67*50000000000 = 3350000000000 :-)

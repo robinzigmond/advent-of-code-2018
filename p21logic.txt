@@ -1,0 +1,178 @@
+there are 3 different loops here. Beginning ip18, ip8, and ip28.
+
+The innermost begins at ip 18: [a, 17, c, d, e, f]
+18: addi 3 1 2 -> [a, 18, d+1, d, e, f] (ip19)
+19: muli 2 256 2 -> [a, 19, 256(d+1), d, e, f] (ip20)
+20: gtrr 2 4 2 -> [a, 20, 0/1, d, e, f] (ip21)
+- 1 if 256(d+1) > e, otherwise 0. Assume 0 (the loop case)
+21: addr 2 1 1 -> [a, 21, 0, d, e, f] (ip22)
+22: addi 1 1 1 -> [a, 23, 0, d, e, f] (ip24)
+24: addi 3 1 3 -> [a, 24, 0, d+1, e, f] (ip25)
+25: seti 17 4 1 -> [a, 17, 0, d+1, e, f] (ip18)
+so [a, 17, c, d, e, f] loops through and comes back as [a, 17, 0, d+1, e, f]
+It only goes a different way when d is large enough so that 256(d+1) > e.
+This is equivalent to:  d+1 > e/256, or d > (e/256) - 1.
+
+if this condition holds, then we go to ip21 with [a, 20, 1, d, e, f]
+21: addr 2 1 1 -> [a, 22, 1, d, e, f] (ip23)
+23: seti 25 0 1 -> [a, 25, 1, d, e, f] (ip26)
+26: setr 3 3 4 -> [a, 26, 1, d, d, f] (ip27)
+27: seti 7 5 1 -> [a, 7, 1, d, d, f] (ip8)
+
+To summarise:
+arriving an ip18 with [a, 17, c, d, e, f]
+- if d <= (e/256) - 1 we come back to ip18 with [a, 17, 0, d+1, e, f]
+- otherwise, we break out and end up at the start of the 2nd loop (ip8),
+with [a, 7, 1, d, d, f]
+
+----------------------------------------------------------------------------
+middle loop:
+
+arrive at ip8 with [a, 7, c, d, e, f]
+8: bani 4 255 3 -> [a, 8, c, e%256, e, f] (ip9)
+9: addr 5 3 5 -> [a, 9, c, e%256, e, f+e%256] (ip10)
+10: bani 5 16777215 5 -> [a, 10, c, e%256, e, (f+e%256)%16777216] (ip11)
+11: muli 5 65899 5 -> [a, 11, c, e%256, e, 65899*((f+e%256)%16777216)] (ip12)
+12: bani 5 16777215 5 -> [a, 12, c, e%256, e, (65899*(f+e%256))%16777216] (ip13)
+13: gtir 256 4 3 -> [a, 13, c, 0/1, e, (65899*(f+e%256))%16777216] (ip14)
+- 1 if 256 > e, else 0.
+
+so if e <= 256, then we have [a, 13, c, 0, e, (65899*(f+e%256))%16777216] (ip14):
+14: addr 3 1 1 -> [a, 14, c, 0, e, (65899*(f+e%256))%16777216] (ip15)
+15: addi 1 1 1 -> [a, 16, c, 0, e, (65899*(f+e%256))%16777216] (ip17)
+17: seti 0 0 3 -> [a, 17, c, 0, e, (65899*(f+e%256))%16777216] (ip18)
+and now we're back in the inner loop, dealt with above
+
+otoh, if e > 256, we have [a, 13, c, 1, e, (65899*(f+e%256))%16777216] (ip14)
+14: addr 3 1 1 -> [a, 15, c, 1, e, (65899*(f+e%256))%16777216] (ip16)
+16: seti 27 9 1 -> [a, 27, c, 1, e, (65899*(f+e%256))%16777216] (ip28)
+28: eqrr 5 0 3 -> [a, 28, c, 0, e, (65899*(f+e%256))%16777216] (ip29)
+[technically this could result in 1 for register 3, but in that case we know that the program terminates shortly
+afterwards. We're trying to see ALL values for a which could make this happen.]
+29: addr 3 1 1 -> [a, 29, c, 0, e, (65899*(f+e%256))%16777216] (ip30)
+30: seti 5 6 1 -> [a, 5, c, 0, e, (65899*(f+e%256))%16777216] (ip6)
+6: bori 5 65536 4 -> [a, 6, c, 0, ((65899*(f+e%256))%16777216)!65536, (65899*(f+e%256))%16777216] (ip7)
+7: seti 13159625 6 5 -> [a, 7, c, 0, ((65899*(f+e%256))%16777216)!65536, 1315962] (ip8)
+and the loop restarts
+
+so there are a few possibilities for what happens in one run here:
+
+First, suppose e <= 256.
+Then we enter the inner loop, starting with [a, 17, c, 0, e, (65899*(f+e%256))%16777216].
+We know that if 0 <= (e/256)-1 then we loop (increasing the 0 by 1 each time) until the condition holds.
+That is, the 0 needs to be greater than (e/256)-1 - that is, equal to floor(e/256), before we exit.
+BUT we're already assuming e <= 256. So that register 3 at 0 already suffices - unless e is EXACTLY 256, in which
+case it needs to loop once and get up to 1.
+
+Either way, we enter this middle loop again, with values [a, 7, 1, (0/1), (0/1), (65899*(f+e%256))%16777216]
+[those 0/1s are 1 if e=256, and 0 if e<256]
+
+(Now it so happens that the first time this loop is encountered, e is exactly 256.)
+
+What if e > 256? Again we re-enter this loop, with values[a, 7, c, 0, ((65899*(f+e%256))%16777216)!65536, 1315962]
+
+...
+
+Anyway, the first value that we will test at instruction 28 is (65899*(f+e%256))%16777216.
+Let's call this A for now. The question is: how is this value transformed by the time we get back to instruction 28?
+It's not changed that many times, actually. Let's follow themthrough as we move away from instruction 28.
+
+The first thing (instruction 6) is that its value gets bitwise-ored with 65536, and put in register 4.
+Then the 5th register is reset to 1315962 (instruction 7).
+Following through, stated in terms of just a transformation of the value in register 5, we have:
+- it gets bitwise-or'ed with 65536
+- then reduced modulo 256
+- then added to 1315962
+- then multiplied by 65899
+- then reduced mod 16777216
+
+that's actually all that happens, the loops just seem like a complicated delaying tactic.
+But to investigate the behavioiur of this sequence, we need to code it, it's too opaque to reason about.
+The sequence MUST start cycling at some point, we just want the LAST value before a cycle begins.
+[It definitely isn't right, the above doesn't produce the observed values...]
+
+---------------------------------------------------------------------------------
+places where register 5 is updated:
+(ip0, 1, 2, 5) - only for initial setup
+ip7 - reset to 13159625
+ip9 - value of register 3 added
+ip10 - reduced mod 16777216
+ip11 - multiplied by 65899
+ip12 - reduced mod 16777216
+
+that's actually it! But clearly for ip9 we need to know how register 3 evolves:
+
+ip8 - gets value of register 4, reduced mod 256
+ip13 - goes to 1 or 0, getting 1 iff register 4 is < 256
+ip24 - 1 added to it
+ip28 - if loop continues, is reset to 0
+
+and then ip4:
+ip6 - gets value of register 5, bitwise or'ed with 65536
+ip26 - gets the value of register 3
+
+and the 3 loops are, with effects on the 3 relevant registera (a, b, c) for reg's 3, 4, 5.
+(Only displayed when any of them can change):
+
+Loop 1
+18
+19
+20
+21 (possible break here, through 23, 26, 27, 8 and so to Loop 2) (ip26 - (a, b, c) -> (a, a, c))
+[break is iff a >=floor (b/256)]
+22
+24 (a, b, c) -> (a+1, b, c)
+25 (->18)
+
+Loop 2
+8 (a, b, c) -> (b%256, b, c)
+9 (a, b, c) -> (a, b, a+c)
+10 (a, b, c) -> (a, b, c%16777216)
+11 (a, b, c) -> (a, b, 65899c)
+12 (a, b, c) -> (a, b, c%16777216)
+13 (a, b, d) -> (x, b, d), where x is 1 if b < 256, otherwise 0
+14 (possible break to 16, 28 and Loop 3)
+[break iff b < 256]
+15
+17
+18 (and Loop 1)
+
+Loop 3
+28 (a, b, c) -> (0, b, c)
+29
+30
+6 (a, b, c) -> (a, c|65536, c)
+7 (a, b, c) -> (a, b, 13159625)
+8 (and Loop 2)
+
+let's follow in detail, starting with (1, 1, 3941014) (which is the first "hit" at ip28)
+ip28 -> (0, 1, 3941014)
+ip6 -> (0, 4006550, 3941014)
+ip7 -> (0, 4006550, 13159625)
+ip8 -> (150, 4006550, 13159625)
+ip9 -> (150, 4006550, 13159775)
+ip10 -> (150, 4006550, 13159775)
+ip11 -> (150, 4006550, 867216012725)
+ip12 -> (150, 4006550, 1717685)
+ip13 -> (0, 4006550, 1717685)
+ip24 -> (1, 4006550, 1717685)
+....many loop repetitions, until...
+ip24 -> (15650, 4006550, 1717685)
+ip26 -> (15650, 15650, 1717685)
+ip8 -> (34, 15650, 1717685)
+ip9 -> (34, 15650, 1717719)
+ip10 -> (34, 15650, 1717719)
+ip11 -> (34, 15650, 113195964381)
+ip12 -> (34, 15650, 88029)
+ip13 -> (0, 15650, 88029)
+ip24 -> (1, 15650, 88029)
+...many repetitions...
+ip24 -> (61, 15650, 88029)
+ip26 -> (61, 61, 88029)
+ip8 -> (61, 61, 88029)
+ip9 -> (61, 61, 88090)
+ip10 -> (61, 61, 88090)
+ip11 -> (61, 61, 5805042910)
+ip12 -> (61, 61, 126174)
+ip13 -> (1, 61, 126174)
+ip28 -> (0, 61, 126174) - CORRECT!
