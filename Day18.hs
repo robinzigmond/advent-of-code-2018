@@ -61,7 +61,7 @@ second = getData >>= (putStrLn . show . solveSecond)
 -- I have my suspicions though. Perhaps there is a repeating pattern eventually? Let's do a few evolutions
 -- and see!
 suspicious :: Grid -> [Grid]
-suspicious grid = map (flip evolveRepeat grid) [0..]
+suspicious grid = grid : (map evolveGrid (suspicious grid))
 
 printAndCheck :: IO ()
 printAndCheck = getData >>= (\grid -> recurse grid 0)
