@@ -225,7 +225,11 @@ showProgress n = getData >>= (\groups -> doIt 0 (boost groups n))
             putStrLn $ show (length livingImmune) ++ " immune and"
             putStrLn $ show (length livingInfection) ++ " infection"
             putStrLn $ show $ map details living
-            doIt (n+1) $ battleRound groups
+            if map numUnits (sortOn idNum (battleRound groups)) == map numUnits (sortOn idNum groups)
+                then do 
+                        putStrLn "stalemate! - result:"
+                        putStrLn $ show $ winner groups
+                else doIt (n+1) $ battleRound groups
 -- running this with 112 makes it clear that there is indeed a stalemate!
 -- We end with 1 immune unit and 2 infection ones. The Immune unit is "immune" (in the other sense) to the fire
 -- attack used by both the surviving Infection units. And although they aren't immune to its Radiation attack, the
